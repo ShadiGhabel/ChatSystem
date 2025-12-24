@@ -2,7 +2,6 @@ package server;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Room {
     private String name;
@@ -11,8 +10,8 @@ public class Room {
 
     public Room(String name) {
         this.name = name;
-        this.members = new CopyOnWriteArrayList<>();
-        this.history = new CopyOnWriteArrayList<>();
+        this.members = new ArrayList<>();
+        this.history = new ArrayList<>();
     }
 
     public synchronized void addMember(String username) {
