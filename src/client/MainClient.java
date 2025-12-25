@@ -3,7 +3,6 @@ package client;
 import network.*;
 import java.io.*;
 import java.net.Socket;
-import java.util.Scanner;
 
 public class MainClient {
     public static void main(String[] args) {
