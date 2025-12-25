@@ -1,9 +1,11 @@
 package server;
+import java.io.ObjectOutputStream;
 
 public class UserSession {
     private String username;
     private String currentRoom;
     private boolean loggedIn;
+    private ObjectOutputStream out;
     public UserSession() {
         this.loggedIn = false;
         this.currentRoom = null;
@@ -30,5 +32,11 @@ public class UserSession {
     }
     public void setCurrentRoom(String currentRoom) {
         this.currentRoom = currentRoom;
+    }
+    public ObjectOutputStream getOut() {
+        return out;
+    }
+    public void setOut(ObjectOutputStream out) {
+        this.out = out;
     }
 }

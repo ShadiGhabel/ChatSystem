@@ -27,6 +27,7 @@ public class ClientHandler implements Runnable{
             out.flush();
             in = new ObjectInputStream(socket.getInputStream());
 
+            session.setOut(out);
             while (true) {
                 Packet<?> packet = (Packet<?>) in.readObject();
                 handlePacket(packet);
@@ -67,7 +68,14 @@ public class ClientHandler implements Runnable{
         Packet<Message> packet = new Packet<>(PacketType.CHAT, message);
 
         for (UserSession userSession : users.values()) {
-
+            try {
+                if (userSession.getOut() != null) {
+                    userSession.getOut().writeObject(packet);
+                    userSession.getOut().flush();
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to send to: " + userSession.getUsername());
+            }
         }
     }
     private void sendResponse(PacketType type, Object payload) {
