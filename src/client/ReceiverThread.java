@@ -16,20 +16,63 @@ public class ReceiverThread implements Runnable {
         try {
             while (true) {
                 Packet<?> packet = (Packet<?>) in.readObject();
-
-                if (packet.getType() == PacketType.CHAT) {
-                    Message msg = (Message) packet.getPayload();
-                    System.out.println("[" + msg.getSender() + "]: " + msg.getContent());
-
-                } else if (packet.getType() == PacketType.ERROR) {
-                    System.out.println("Error: " + packet.getPayload());
-
-                } else {
-                    System.out.println("Server: " + packet.getPayload());
-                }
+                handlePacket(packet);
             }
         } catch (Exception e) {
-            System.out.println("Disconnected from server");
+            System.out.println("\nDisconnected from server");
+            System.exit(0);
+        }
+    }
+
+    private void handlePacket(Packet<?> packet) {
+        switch (packet.getType()) {
+            case REGISTER:
+                System.out.println("✓ " + packet.getPayload());
+                break;
+
+            case LOGIN:
+                System.out.println("✓ " + packet.getPayload());
+                break;
+
+            case CREATE_ROOM:
+                System.out.println("✓ " + packet.getPayload());
+                break;
+
+            case JOIN_ROOM:
+                System.out.println("✓ " + packet.getPayload());
+                break;
+
+            case LEAVE_ROOM:
+                System.out.println("✓ " + packet.getPayload());
+                break;
+
+            case LIST_ROOMS:
+                System.out.println("\n=== Available Rooms ===");
+                System.out.println(packet.getPayload());
+                System.out.println("======================\n");
+                break;
+
+            case LIST_USERS:
+                System.out.println("\n=== Users in Room ===");
+                System.out.println(packet.getPayload());
+                System.out.println("====================\n");
+                break;
+
+            case CHAT:
+                Message msg = (Message) packet.getPayload();
+                if (msg.getType() == Message.MessageType.SYSTEM) {
+                    System.out.println("* " + msg.getContent());
+                } else {
+                    System.out.println("[" + msg.getSender() + "]: " + msg.getContent());
+                }
+                break;
+
+            case ERROR:
+                System.out.println("✗ Error: " + packet.getPayload());
+                break;
+
+            default:
+                System.out.println("Server: " + packet.getPayload());
         }
     }
 }
