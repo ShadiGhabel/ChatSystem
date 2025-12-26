@@ -9,9 +9,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MainServer {
     private static final int PORT = 8080;
     private Map<String, UserSession> users;
+    private Map<String, String> registeredUsers;
 
     public MainServer() {
         users = new ConcurrentHashMap<>();
+        registeredUsers = new ConcurrentHashMap<>();
     }
 
     public void start() {

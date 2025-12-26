@@ -2,10 +2,12 @@ package server;
 
 import network.*;
 
+import javax.swing.*;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.List;
 import java.util.Map;
 
 public class ClientHandler implements Runnable{
@@ -14,11 +16,15 @@ public class ClientHandler implements Runnable{
     private ObjectInputStream in;
     private UserSession session;
     private Map<String, UserSession> users;
+    private Map<String, String> registeredUsers;
+    private RoomService roomService;
 
-    public ClientHandler(Socket socket, Map<String, UserSession> users) {
+    public ClientHandler(Socket socket, Map<String, UserSession> users, Map<String, String> registeredUsers) {
         this.socket = socket;
         this.users = users;
         this.session = new UserSession();
+        this.registeredUsers = registeredUsers;
+        this.roomService = RoomService.getInstance();
     }
     @Override
     public void run() {
@@ -37,45 +43,196 @@ public class ClientHandler implements Runnable{
         }
     }
     private void handlePacket(Packet<?> packet) throws IOException {
-        switch (packet.getType()) {
-            case LOGIN -> handleLogin((String) packet.getPayload());
-            case CHAT  -> handleChat((Message) packet.getPayload());
-            default    -> sendError("Unsupported command");
+        try {
+            switch (packet.getType()) {
+                case REGISTER -> handleRegister((String) packet.getPayload());
+                case LOGIN -> handleLogin((String) packet.getPayload());
+                case CREATE_ROOM -> handleCreateRoom((String) packet.getPayload());
+                case JOIN_ROOM -> handleJoinRoom((String) packet.getPayload());
+                case LEAVE_ROOM -> handleLeaveRoom();
+                case LIST_ROOMS -> handleListRooms();
+                case LIST_USERS -> handleListUsers();
+                case CHAT -> handleChat((Message) packet.getPayload());
+                default -> sendError("Unsupported command");
+            }
+        } catch (Exception e) {
+            sendError(e.getMessage());
         }
     }
+    private void handleRegister(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            sendError("Username cannot be empty");
+            return;
+        }
+
+        username = username.trim();
+
+        if (registeredUsers.containsKey(username)) {
+            sendError("Username already exists");
+            return;
+        }
+
+        registeredUsers.put(username, "registered");
+        sendResponse(PacketType.REGISTER, "Registration successful! Please login.");
+    }
     private void handleLogin(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            sendError("Username cannot be empty");
+            return;
+        }
+        username = username.trim();
+
+        if (!registeredUsers.containsKey(username)) {
+            sendError("Username not registered. Please register first.");
+            return;
+        }
         if (users.containsKey(username)) {
             sendError("User already logged in");
             return;
         }
-
         session.setUsername(username);
         session.setLoggedIn(true);
-        session.setCurrentRoom("lobby");
         users.put(username, session);
 
-        sendResponse(PacketType.LOGIN, "Logged in");
+        try {
+            roomService.joinRoom("lobby", username);
+            session.setCurrentRoom("lobby");
+            sendResponse(PacketType.LOGIN, "Logged in successfully! You are in 'lobby'");
+        } catch (Exception e) {
+            sendError("Login failed: " + e.getMessage());
+        }
     }
-    private void handleChat(Message msg) {
+    private void handleCreateRoom(String roomName) {
         if (!session.isLoggedIn()) {
-            sendError("Login first");
+            sendError("Please login first");
             return;
         }
 
-        broadcast(msg);
-    }
-    private void broadcast(Message message) {
-        Packet<Message> packet = new Packet<>(PacketType.CHAT, message);
+        if (roomName == null || roomName.trim().isEmpty()) {
+            sendError("Room name cannot be empty");
+            return;
+        }
 
-        for (UserSession userSession : users.values()) {
-            try {
-                if (userSession.getOut() != null) {
-                    userSession.getOut().writeObject(packet);
-                    userSession.getOut().flush();
-                }
-            } catch (Exception e) {
-                System.err.println("Failed to send to: " + userSession.getUsername());
+        try {
+            roomService.createRoom(roomName.trim());
+            sendResponse(PacketType.CREATE_ROOM, "Room '" + roomName + "' created successfully");
+        } catch (Exception e) {
+            sendError(e.getMessage());
+        }
+    }
+    private void handleJoinRoom(String roomName) {
+        if (!session.isLoggedIn()) {
+            sendError("Please login first");
+            return;
+        }
+
+        if (roomName == null || roomName.trim().isEmpty()) {
+            sendError("Room name cannot be empty");
+            return;
+        }
+
+        try {
+            if (session.getCurrentRoom() != null) {
+                roomService.leaveRoom(session.getCurrentRoom(), session.getUsername());
             }
+
+            roomService.joinRoom(roomName.trim(), session.getUsername());
+            session.setCurrentRoom(roomName.trim());
+
+            sendResponse(PacketType.JOIN_ROOM, "Joined room: " + roomName);
+        } catch (Exception e) {
+            sendError(e.getMessage());
+        }
+    }
+    private void handleLeaveRoom() {
+        if (!session.isLoggedIn()) {
+            sendError("Please login first");
+            return;
+        }
+
+        if (session.getCurrentRoom() == null) {
+            sendError("You are not in any room");
+            return;
+        }
+
+        try {
+            String roomName = session.getCurrentRoom();
+            roomService.leaveRoom(roomName, session.getUsername());
+            session.setCurrentRoom(null);
+
+            sendResponse(PacketType.LEAVE_ROOM, "Left room: " + roomName);
+        } catch (Exception e) {
+            sendError(e.getMessage());
+        }
+    }
+    private void handleListRooms() {
+        if (!session.isLoggedIn()) {
+            sendError("Please login first");
+            return;
+        }
+
+        List<String> rooms = roomService.listRooms();
+        String roomList = String.join("\n", rooms);
+        sendResponse(PacketType.LIST_ROOMS, roomList);
+    }
+    private void handleListUsers() {
+        if (!session.isLoggedIn()) {
+            sendError("Please login first");
+            return;
+        }
+        if (session.getCurrentRoom() == null) {
+            sendError("You are not in any room");
+            return;
+        }
+        try {
+            List<String> members = roomService.getRoomMembers(session.getCurrentRoom());
+            String userList = String.join("\n", members);
+            sendResponse(PacketType.LIST_USERS, userList);
+        } catch (Exception e) {
+            sendError(e.getMessage());
+        }
+    }
+    private void handleChat(Message msg) {
+        if (!session.isLoggedIn()) {
+            sendError("Please Login first");
+            return;
+        }
+        if (session.getCurrentRoom() == null) {
+            sendError("You are not in any room. Join a room first.");
+            return;
+        }
+
+        try {
+            Room room = roomService.getRoom(session.getCurrentRoom());
+            if (room != null) {
+                room.addMessage(msg);
+                broadcastToRoom(session.getCurrentRoom(), msg);
+            }
+        } catch (Exception e) {
+            sendError("Failed to send message: " + e.getMessage());
+        }
+    }
+    private void broadcastToRoom(String roomName, Message message) {
+        try {
+            Room room = roomService.getRoom(roomName);
+            if (room == null) return;
+
+            List<String> members = room.getMembers();
+            Packet<Message> packet = new Packet<>(PacketType.CHAT, message);
+
+            for (String memberName : members) {
+                UserSession memberSession = users.get(memberName);
+                if (memberSession != null && memberSession.getOut() != null) {
+                    try {
+                        memberSession.getOut().writeObject(packet);
+                        memberSession.getOut().flush();
+                    } catch (IOException e) {
+                        System.err.println("Failed to send to: " + memberName);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Broadcast error: " + e.getMessage());
         }
     }
     private void sendResponse(PacketType type, Object payload) {
@@ -98,8 +255,21 @@ public class ClientHandler implements Runnable{
         }
     }
     private void cleanup() {
-        if (session.getUsername() != null) {
-            users.remove(session.getUsername());
+        try {
+            if (session.isLoggedIn()) {
+                if (session.getCurrentRoom() != null) {
+                    roomService.leaveRoom(session.getCurrentRoom(), session.getUsername());
+                }
+                users.remove(session.getUsername());
+            }
+            if (in != null)
+                in.close();
+            if (out != null)
+                out.close();
+            if (socket != null)
+                socket.close();
+        } catch (Exception e) {
+            System.err.println("Cleanup error: " + e.getMessage());
         }
     }
 }

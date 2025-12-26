@@ -5,5 +5,11 @@ public enum PacketType {
     LOGIN,
     CHAT,
     SYSTEM,
-    ERROR
+    ERROR,
+
+    CREATE_ROOM,
+    JOIN_ROOM,
+    LEAVE_ROOM,
+    LIST_ROOMS,
+    LIST_USERS
 }

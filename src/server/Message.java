@@ -1,6 +1,7 @@
 package server;
 
 import java.io.Serializable;
+import java.util.UUID;
 
 public class Message implements Serializable {
     public enum MessageType {
@@ -12,11 +13,19 @@ public class Message implements Serializable {
     private String content;
     private long timestamp;
     private MessageType type;
+    private String id;
     public Message(String sender, MessageType type, String content) {
+        this.id = UUID.randomUUID().toString();
         this.sender = sender;
         this.timestamp = System.currentTimeMillis();
         this.content = content;
         this.type = type;
+    }
+    public String getId() {
+        return id;
+    }
+    public void setId(String id) {
+        this.id = id;
     }
     public String getSender() {
         return sender;
