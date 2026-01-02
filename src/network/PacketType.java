@@ -13,6 +13,4 @@ public enum PacketType {
     LIST_ROOMS,
     LIST_USERS,
 
-    EXPORT_REQ,
-    EXPORT_RES
 }
