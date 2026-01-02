@@ -27,23 +27,23 @@ public class ReceiverThread implements Runnable {
     private void handlePacket(Packet<?> packet) {
         switch (packet.getType()) {
             case REGISTER:
-                System.out.println("* " + packet.getPayload());
+                System.out.println("> " + packet.getPayload());
                 break;
 
             case LOGIN:
-                System.out.println("* " + packet.getPayload());
+                System.out.println("> " + packet.getPayload());
                 break;
 
             case CREATE_ROOM:
-                System.out.println("* " + packet.getPayload());
+                System.out.println("> " + packet.getPayload());
                 break;
 
             case JOIN_ROOM:
-                System.out.println("* " + packet.getPayload());
+                System.out.println("> " + packet.getPayload());
                 break;
 
             case LEAVE_ROOM:
-                System.out.println("* " + packet.getPayload());
+                System.out.println("> " + packet.getPayload());
                 break;
 
             case LIST_ROOMS:
@@ -61,14 +61,14 @@ public class ReceiverThread implements Runnable {
             case CHAT:
                 Message msg = (Message) packet.getPayload();
                 if (msg.getType() == Message.MessageType.SYSTEM) {
-                    System.out.println("* " + msg.getContent());
+                    System.out.println("*** " + msg.getContent());
                 } else {
                     System.out.println("[" + msg.getSender() + "]: " + msg.getContent());
                 }
                 break;
 
             case ERROR:
-                System.out.println("* Error: " + packet.getPayload());
+                System.out.println("[!] Error: " + packet.getPayload());
                 break;
 
             default:

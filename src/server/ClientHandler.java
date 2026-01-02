@@ -53,7 +53,7 @@ public class ClientHandler implements Runnable{
                 case LIST_ROOMS -> handleListRooms();
                 case LIST_USERS -> handleListUsers();
                 case CHAT -> handleChat((Message) packet.getPayload());
-                default -> sendError("Unsupported command");
+                default -> sendError("Invalid command");
             }
         } catch (Exception e) {
             sendError(e.getMessage());
@@ -97,6 +97,14 @@ public class ClientHandler implements Runnable{
         try {
             roomService.joinRoom("lobby", username);
             session.setCurrentRoom("lobby");
+            Room lobby = roomService.getRoom("lobby");
+            if (lobby != null) {
+                List<Message> history = lobby.getHistory();
+                if (!history.isEmpty()) {
+                    Message joinMsg = history.get(history.size() - 1);
+                    broadcastToRoom("lobby", joinMsg);
+                }
+            }
             sendResponse(PacketType.LOGIN, "Logged in successfully! You are in 'lobby'");
         } catch (Exception e) {
             sendError("Login failed: " + e.getMessage());
@@ -133,12 +141,29 @@ public class ClientHandler implements Runnable{
 
         try {
             if (session.getCurrentRoom() != null) {
-                roomService.leaveRoom(session.getCurrentRoom(), session.getUsername());
+                String oldRoom = session.getCurrentRoom();
+                Room room = roomService.getRoom(oldRoom);
+
+                roomService.leaveRoom(oldRoom, session.getUsername());
+                if (room != null) {
+                    List<Message> history = room.getHistory();
+                    if (!history.isEmpty()) {
+                        Message leaveMsg = history.get(history.size() - 1);
+                        broadcastToRoom(oldRoom, leaveMsg);
+                    }
+                }
             }
 
             roomService.joinRoom(roomName.trim(), session.getUsername());
             session.setCurrentRoom(roomName.trim());
-
+            Room newRoom = roomService.getRoom(roomName.trim());
+            if (newRoom != null) {
+                List<Message> history = newRoom.getHistory();
+                if (!history.isEmpty()) {
+                    Message joinMsg = history.get(history.size() - 1);
+                    broadcastToRoom(roomName.trim(), joinMsg);
+                }
+            }
             sendResponse(PacketType.JOIN_ROOM, "Joined room: " + roomName);
         } catch (Exception e) {
             sendError(e.getMessage());
@@ -157,9 +182,17 @@ public class ClientHandler implements Runnable{
 
         try {
             String roomName = session.getCurrentRoom();
-            roomService.leaveRoom(roomName, session.getUsername());
-            session.setCurrentRoom(null);
+            Room room = roomService.getRoom(roomName);
+            if (room != null) {
+                List<Message> history = room.getHistory();
 
+                roomService.leaveRoom(roomName, session.getUsername());
+                if (!history.isEmpty()) {
+                    Message leaveMsg = history.get(history.size() - 1);
+                    broadcastToRoom(roomName, leaveMsg);
+                }
+            }
+            session.setCurrentRoom(null);
             sendResponse(PacketType.LEAVE_ROOM, "Left room: " + roomName);
         } catch (Exception e) {
             sendError(e.getMessage());
@@ -258,7 +291,16 @@ public class ClientHandler implements Runnable{
         try {
             if (session.isLoggedIn()) {
                 if (session.getCurrentRoom() != null) {
+                    String roomName = session.getCurrentRoom();
+                    Room room = roomService.getRoom(roomName);
                     roomService.leaveRoom(session.getCurrentRoom(), session.getUsername());
+                    if (room != null) {
+                        List<Message> history = room.getHistory();
+                        if (!history.isEmpty()) {
+                            Message leaveMsg = history.get(history.size() - 1);
+                            broadcastToRoom(roomName, leaveMsg);
+                        }
+                    }
                 }
                 users.remove(session.getUsername());
             }

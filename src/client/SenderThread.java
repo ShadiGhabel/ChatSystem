@@ -31,7 +31,7 @@ public class SenderThread implements Runnable {
                     handleCommand(input);
                 } else {
                     if (!loggedIn) {
-                        System.out.println("Please login first! Use: /register <username> then /login <username>");
+                        System.out.println("Please login first!");
                         continue;
                     }
                     sendChatMessage(input);
