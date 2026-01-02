@@ -1,7 +1,8 @@
 package client;
 
 import network.*;
-import server.Message;
+import common.Message;
+
 import java.io.*;
 import java.util.Scanner;
 
@@ -104,6 +105,28 @@ public class SenderThread implements Runnable {
                 sendPacket(PacketType.LIST_USERS, "");
                 break;
 
+            case "/export":
+                String[] exportParts = input.split("\\s+");
+                if (exportParts.length < 4) {
+                    System.out.println("Usage: /export last <N> <savePath>");
+                    System.out.println("Example: /export last 10 chat.json");
+                    return;
+                }
+
+                if (!exportParts[1].equals("last")) {
+                    System.out.println("Usage: /export last <N> <savePath>");
+                    return;
+                }
+
+                String n = exportParts[2];
+                String savePath = exportParts[3];
+
+                ReceiverThread.exportSavePath = savePath;
+
+                sendPacket(PacketType.EXPORT_REQ, n);
+                System.out.println("Requesting export...");
+                break;
+
             default:
                 System.out.println("Unknown command. Type /help for available commands.");
         }
@@ -135,6 +158,9 @@ public class SenderThread implements Runnable {
         System.out.println();
         System.out.println("Messaging:");
         System.out.println("  <text>                - Send message (without /");
+        System.out.println();
+        System.out.println("Export:");
+        System.out.println("  /export last <N> <savePath>  - Export last N messages (1-200)");
         System.out.println();
         System.out.println("Other:");
         System.out.println("  /help                 - Show this help");

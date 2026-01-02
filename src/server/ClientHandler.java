@@ -1,8 +1,9 @@
 package server;
 
+import common.Message;
+import common.ExportData;
 import network.*;
 
-import javax.swing.*;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -49,6 +50,7 @@ public class ClientHandler implements Runnable{
                 case LOGIN -> handleLogin((String) packet.getPayload());
                 case CREATE_ROOM -> handleCreateRoom((String) packet.getPayload());
                 case JOIN_ROOM -> handleJoinRoom((String) packet.getPayload());
+                case EXPORT_REQ -> handleExport((String) packet.getPayload());
                 case LEAVE_ROOM -> handleLeaveRoom();
                 case LIST_ROOMS -> handleListRooms();
                 case LIST_USERS -> handleListUsers();
@@ -210,6 +212,46 @@ public class ClientHandler implements Runnable{
             }
         } catch (Exception e) {
             sendError("Failed to send message: " + e.getMessage());
+        }
+    }
+    private void handleExport(String params) {
+        if (!session.isLoggedIn()) {
+            sendError("Please login first");
+            return;
+        }
+
+        if (session.getCurrentRoom() == null) {
+            sendError("You are not in any room");
+            return;
+        }
+
+        try {
+            int n = Integer.parseInt(params.trim());
+
+            if (n < 1 || n > 200) {
+                sendError("N must be between 1 and 200");
+                return;
+            }
+
+            Room room = roomService.getRoom(session.getCurrentRoom());
+            if (room == null) {
+                sendError("Room not found");
+                return;
+            }
+
+            List<Message> messages = room.getLastNMessages(n);
+
+            ExportData exportData = new ExportData(
+                    session.getCurrentRoom(),
+                    messages
+            );
+
+            sendResponse(PacketType.EXPORT_RES, exportData);
+
+        } catch (NumberFormatException e) {
+            sendError("Invalid number format");
+        } catch (Exception e) {
+            sendError("Export failed: " + e.getMessage());
         }
     }
     private void broadcastToRoom(String roomName, Message message) {

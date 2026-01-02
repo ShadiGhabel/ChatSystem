@@ -1,5 +1,7 @@
 package server;
 
+import common.Message;
+
 import java.util.ArrayList;
 import java.util.List;
 
