@@ -1,0 +1,41 @@
+{
+  "room": "lobby",
+  "exportedAt": "2026-01-02T17:39:57Z",
+  "messages": [
+    {
+      "id": "368ba7dc-b36a-4009-8acd-e001bf984b32",
+      "sender": "SYSTEM",
+      "timestamp": 1767362954241,
+      "type": "SYSTEM",
+      "content": "bob joined the room"
+    },
+    {
+      "id": "3d28771f-49ae-4313-b397-f0dda97862bb",
+      "sender": "alice",
+      "timestamp": 1767362964973,
+      "type": "TEXT",
+      "content": "hello"
+    },
+    {
+      "id": "f508f71d-46bd-4d41-ba79-966dbf52d2e7",
+      "sender": "alice",
+      "timestamp": 1767362973128,
+      "type": "TEXT",
+      "content": "this is message 2"
+    },
+    {
+      "id": "1f1c916a-18a1-40e6-af93-c110dd4156b7",
+      "sender": "bob",
+      "timestamp": 1767362978081,
+      "type": "TEXT",
+      "content": "hi!"
+    },
+    {
+      "id": "0a0932f4-65e2-407b-b6fb-82b9c3a62130",
+      "sender": "bob",
+      "timestamp": 1767362983612,
+      "type": "TEXT",
+      "content": "nice to meet you"
+    }
+  ]
+}
