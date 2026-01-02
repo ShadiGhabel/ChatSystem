@@ -157,7 +157,7 @@ public class SenderThread implements Runnable {
         System.out.println("  /users                - List users in current room");
         System.out.println();
         System.out.println("Messaging:");
-        System.out.println("  <text>                - Send message (without /");
+        System.out.println("  <text>                - Send message (without /)");
         System.out.println();
         System.out.println("Export:");
         System.out.println("  /export last <N> <savePath>  - Export last N messages (1-200)");
