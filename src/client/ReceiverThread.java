@@ -6,6 +6,7 @@ import java.io.*;
 
 public class ReceiverThread implements Runnable {
     private ObjectInputStream in;
+    public static String exportSavePath = "export.json";
 
     public ReceiverThread(ObjectInputStream in) {
         this.in = in;

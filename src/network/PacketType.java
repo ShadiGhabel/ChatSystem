@@ -11,5 +11,8 @@ public enum PacketType {
     JOIN_ROOM,
     LEAVE_ROOM,
     LIST_ROOMS,
-    LIST_USERS
+    LIST_USERS,
+
+    EXPORT_REQ,
+    EXPORT_RES
 }
