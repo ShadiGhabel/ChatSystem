@@ -1,0 +1,34 @@
+{
+  "room": "lobby",
+  "exportedAt": "2026-01-03T11:02:28Z",
+  "messages": [
+    {
+      "id": "8630687c-735b-4cae-928d-d9213c13f60c",
+      "sender": "alice",
+      "timestamp": 1767425473867,
+      "type": "TEXT",
+      "content": "hello message 2"
+    },
+    {
+      "id": "42022bbe-b036-4f0f-b9bf-ca82047b1a13",
+      "sender": "alice",
+      "timestamp": 1767425477283,
+      "type": "TEXT",
+      "content": "hello message 3"
+    },
+    {
+      "id": "baa59464-f7e1-4dea-ae47-f593c91f53ec",
+      "sender": "SYSTEM",
+      "timestamp": 1767425524156,
+      "type": "SYSTEM",
+      "content": "nan joined the room"
+    },
+    {
+      "id": "abebada3-c0d3-414d-8ec6-0fd338dd5893",
+      "sender": "nan",
+      "timestamp": 1767425531679,
+      "type": "TEXT",
+      "content": "hi from nan"
+    }
+  ]
+}

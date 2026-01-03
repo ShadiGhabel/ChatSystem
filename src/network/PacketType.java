@@ -12,6 +12,13 @@ public enum PacketType {
     LEAVE_ROOM,
     LIST_ROOMS,
     LIST_USERS,
+
     EXPORT_REQ,
-    EXPORT_RES
+    EXPORT_RES,
+
+    FILE_UPLOAD_REQ,
+    FILE_UPLOAD_RES,
+    FILE_DOWNLOAD_REQ,
+    FILE_DOWNLOAD_RES,
+    FILE_DATA
 }

@@ -1,7 +1,7 @@
 package server;
 
-import common.Message;
-import common.ExportData;
+import common.*;
+import common.exceptions.*;
 import network.*;
 
 import java.io.IOException;
@@ -11,7 +11,7 @@ import java.net.Socket;
 import java.util.List;
 import java.util.Map;
 
-public class ClientHandler implements Runnable{
+public class ClientHandler implements Runnable {
     private Socket socket;
     private ObjectOutputStream out;
     private ObjectInputStream in;
@@ -19,6 +19,7 @@ public class ClientHandler implements Runnable{
     private Map<String, UserSession> users;
     private Map<String, String> registeredUsers;
     private RoomService roomService;
+    private FileStorageService fileStorageService;
 
     public ClientHandler(Socket socket, Map<String, UserSession> users, Map<String, String> registeredUsers) {
         this.socket = socket;
@@ -26,7 +27,9 @@ public class ClientHandler implements Runnable{
         this.session = new UserSession();
         this.registeredUsers = registeredUsers;
         this.roomService = RoomService.getInstance();
+        this.fileStorageService = FileStorageService.getInstance();
     }
+
     @Override
     public void run() {
         try {
@@ -43,6 +46,7 @@ public class ClientHandler implements Runnable{
             cleanup();
         }
     }
+
     private void handlePacket(Packet<?> packet) throws IOException {
         try {
             switch (packet.getType()) {
@@ -55,13 +59,26 @@ public class ClientHandler implements Runnable{
                 case LIST_ROOMS -> handleListRooms();
                 case LIST_USERS -> handleListUsers();
                 case CHAT -> handleChat((Message) packet.getPayload());
+                case FILE_UPLOAD_REQ -> handleFileUpload((FileData) packet.getPayload());
+                case FILE_DOWNLOAD_REQ -> handleFileDownload((String) packet.getPayload());
                 default -> sendError("Unsupported command");
             }
+        } catch (UserNotLoggedInException e) {
+            sendError("Please login first");
+        } catch (RoomNotFoundException e) {
+            sendError("Room not found: " + e.getMessage());
+        } catch (DuplicateUsernameException e) {
+            sendError("Username already exists");
+        } catch (FileTransferException e) {
+            sendError("File transfer error: " + e.getMessage());
+        } catch (InvalidCommandException e) {
+            sendError("Invalid command: " + e.getMessage());
         } catch (Exception e) {
             sendError(e.getMessage());
         }
     }
-    private void handleRegister(String username) {
+
+    private void handleRegister(String username) throws DuplicateUsernameException {
         if (username == null || username.trim().isEmpty()) {
             sendError("Username cannot be empty");
             return;
@@ -70,14 +87,14 @@ public class ClientHandler implements Runnable{
         username = username.trim();
 
         if (registeredUsers.containsKey(username)) {
-            sendError("Username already exists");
-            return;
+            throw new DuplicateUsernameException("Username already exists: " + username);
         }
 
         registeredUsers.put(username, "registered");
         sendResponse(PacketType.REGISTER, "Registration successful! Please login.");
     }
-    private void handleLogin(String username) {
+
+    private void handleLogin(String username) throws Exception {
         if (username == null || username.trim().isEmpty()) {
             sendError("Username cannot be empty");
             return;
@@ -101,13 +118,13 @@ public class ClientHandler implements Runnable{
             session.setCurrentRoom("lobby");
             sendResponse(PacketType.LOGIN, "Logged in successfully! You are in 'lobby'");
         } catch (Exception e) {
-            sendError("Login failed: " + e.getMessage());
+            throw new Exception("Login failed: " + e.getMessage());
         }
     }
-    private void handleCreateRoom(String roomName) {
+
+    private void handleCreateRoom(String roomName) throws UserNotLoggedInException {
         if (!session.isLoggedIn()) {
-            sendError("Please login first");
-            return;
+            throw new UserNotLoggedInException("Please login first");
         }
 
         if (roomName == null || roomName.trim().isEmpty()) {
@@ -122,10 +139,10 @@ public class ClientHandler implements Runnable{
             sendError(e.getMessage());
         }
     }
-    private void handleJoinRoom(String roomName) {
+
+    private void handleJoinRoom(String roomName) throws UserNotLoggedInException, RoomNotFoundException {
         if (!session.isLoggedIn()) {
-            sendError("Please login first");
-            return;
+            throw new UserNotLoggedInException("Please login first");
         }
 
         if (roomName == null || roomName.trim().isEmpty()) {
@@ -143,13 +160,13 @@ public class ClientHandler implements Runnable{
 
             sendResponse(PacketType.JOIN_ROOM, "Joined room: " + roomName);
         } catch (Exception e) {
-            sendError(e.getMessage());
+            throw new RoomNotFoundException(e.getMessage());
         }
     }
-    private void handleLeaveRoom() {
+
+    private void handleLeaveRoom() throws UserNotLoggedInException {
         if (!session.isLoggedIn()) {
-            sendError("Please login first");
-            return;
+            throw new UserNotLoggedInException("Please login first");
         }
 
         if (session.getCurrentRoom() == null) {
@@ -167,20 +184,20 @@ public class ClientHandler implements Runnable{
             sendError(e.getMessage());
         }
     }
-    private void handleListRooms() {
+
+    private void handleListRooms() throws UserNotLoggedInException {
         if (!session.isLoggedIn()) {
-            sendError("Please login first");
-            return;
+            throw new UserNotLoggedInException("Please login first");
         }
 
         List<String> rooms = roomService.listRooms();
         String roomList = String.join("\n", rooms);
         sendResponse(PacketType.LIST_ROOMS, roomList);
     }
-    private void handleListUsers() {
+
+    private void handleListUsers() throws UserNotLoggedInException {
         if (!session.isLoggedIn()) {
-            sendError("Please login first");
-            return;
+            throw new UserNotLoggedInException("Please login first");
         }
         if (session.getCurrentRoom() == null) {
             sendError("You are not in any room");
@@ -194,10 +211,10 @@ public class ClientHandler implements Runnable{
             sendError(e.getMessage());
         }
     }
-    private void handleChat(Message msg) {
+
+    private void handleChat(Message msg) throws UserNotLoggedInException {
         if (!session.isLoggedIn()) {
-            sendError("Please Login first");
-            return;
+            throw new UserNotLoggedInException("Please login first");
         }
         if (session.getCurrentRoom() == null) {
             sendError("You are not in any room. Join a room first.");
@@ -214,10 +231,10 @@ public class ClientHandler implements Runnable{
             sendError("Failed to send message: " + e.getMessage());
         }
     }
-    private void handleExport(String params) {
+
+    private void handleExport(String params) throws UserNotLoggedInException {
         if (!session.isLoggedIn()) {
-            sendError("Please login first");
-            return;
+            throw new UserNotLoggedInException("Please login first");
         }
 
         if (session.getCurrentRoom() == null) {
@@ -254,6 +271,61 @@ public class ClientHandler implements Runnable{
             sendError("Export failed: " + e.getMessage());
         }
     }
+
+    private void handleFileUpload(FileData fileData) throws UserNotLoggedInException, FileTransferException {
+        if (!session.isLoggedIn()) {
+            throw new UserNotLoggedInException("Please login first");
+        }
+
+        if (session.getCurrentRoom() == null) {
+            sendError("You are not in any room");
+            return;
+        }
+
+        try {
+            String fileId = fileStorageService.saveFile(fileData.getMetadata(), fileData.getContent());
+
+            sendResponse(PacketType.FILE_UPLOAD_RES, fileId);
+
+            Message fileMsg = new Message(
+                    session.getUsername(),
+                    Message.MessageType.FILE,
+                    fileData.getMetadata().getOriginalName() + " (FileID: " + fileId + ")"
+            );
+
+            Room room = roomService.getRoom(session.getCurrentRoom());
+            if (room != null) {
+                room.addMessage(fileMsg);
+                broadcastToRoom(session.getCurrentRoom(), fileMsg);
+            }
+
+        } catch (Exception e) {
+            throw new FileTransferException("Upload failed: " + e.getMessage());
+        }
+    }
+
+    private void handleFileDownload(String fileId) throws UserNotLoggedInException, FileTransferException {
+        if (!session.isLoggedIn()) {
+            throw new UserNotLoggedInException("Please login first");
+        }
+
+        try {
+            if (!fileStorageService.fileExists(fileId)) {
+                throw new FileTransferException("File not found: " + fileId);
+            }
+
+            FileMetadata metadata = fileStorageService.getFileMetadata(fileId);
+            byte[] content = fileStorageService.loadFile(fileId);
+
+            FileData fileData = new FileData(metadata, content);
+
+            sendResponse(PacketType.FILE_DOWNLOAD_RES, fileData);
+
+        } catch (Exception e) {
+            throw new FileTransferException("Download failed: " + e.getMessage());
+        }
+    }
+
     private void broadcastToRoom(String roomName, Message message) {
         try {
             Room room = roomService.getRoom(roomName);
@@ -277,6 +349,7 @@ public class ClientHandler implements Runnable{
             System.err.println("Broadcast error: " + e.getMessage());
         }
     }
+
     private void sendResponse(PacketType type, Object payload) {
         try {
             Packet<Object> packet = new Packet<>(type, payload);
@@ -296,6 +369,7 @@ public class ClientHandler implements Runnable{
             System.err.println("Failed to send error: " + e.getMessage());
         }
     }
+
     private void cleanup() {
         try {
             if (session.isLoggedIn()) {
@@ -304,14 +378,14 @@ public class ClientHandler implements Runnable{
                 }
                 users.remove(session.getUsername());
             }
-            if (in != null)
-                in.close();
-            if (out != null)
-                out.close();
-            if (socket != null)
-                socket.close();
+            if (in != null) in.close();
+            if (out != null) out.close();
+            if (socket != null) socket.close();
         } catch (Exception e) {
             System.err.println("Cleanup error: " + e.getMessage());
+        } finally {
+            System.out.println("Client disconnected: " +
+                    (session.getUsername() != null ? session.getUsername() : "unknown"));
         }
     }
 }

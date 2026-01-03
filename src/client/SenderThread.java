@@ -1,16 +1,19 @@
 package client;
 
 import network.*;
-import common.Message;
+import common.*;
 
 import java.io.*;
+import java.nio.file.Files;
 import java.util.Scanner;
+import java.util.UUID;
 
 public class SenderThread implements Runnable {
     private ObjectOutputStream out;
     private Scanner scanner;
     private String username;
     private boolean loggedIn;
+    private static final long MAX_FILE_SIZE = 200 * 1024;
 
     public SenderThread(ObjectOutputStream out) {
         this.out = out;
@@ -105,6 +108,14 @@ public class SenderThread implements Runnable {
                 sendPacket(PacketType.LIST_USERS, "");
                 break;
 
+            case "/upload":
+                handleUpload(input);
+                break;
+
+            case "/download":
+                handleDownload(input);
+                break;
+
             case "/export":
                 String[] exportParts = input.split("\\s+");
                 if (exportParts.length < 4) {
@@ -131,6 +142,81 @@ public class SenderThread implements Runnable {
                 System.out.println("Unknown command. Type /help for available commands.");
         }
     }
+
+    private void handleUpload(String input) {
+        String[] parts = input.split("\\s+");
+        if (parts.length < 2) {
+            System.out.println("Usage: /upload <localPath>");
+            System.out.println("Example: /upload document.txt");
+            return;
+        }
+
+        String filePath = parts[1];
+        File file = new File(filePath);
+
+        try {
+            if (!file.exists()) {
+                System.out.println("[!] Error: File not found: " + filePath);
+                return;
+            }
+
+            if (!filePath.toLowerCase().endsWith(".txt")) {
+                System.out.println("[!] Error: Only .txt files are allowed");
+                return;
+            }
+
+            long fileSize = file.length();
+            if (fileSize > MAX_FILE_SIZE) {
+                System.out.println("[!] Error: File too large (max 200KB)");
+                System.out.println("    Current size: " + (fileSize / 1024) + "KB");
+                return;
+            }
+
+            byte[] content = Files.readAllBytes(file.toPath());
+
+            String fileId = UUID.randomUUID().toString();
+            FileMetadata metadata = new FileMetadata(
+                    fileId,
+                    file.getName(),
+                    username,
+                    fileSize
+            );
+
+            FileData fileData = new FileData(metadata, content);
+
+            Packet<FileData> packet = new Packet<>(PacketType.FILE_UPLOAD_REQ, fileData);
+            out.writeObject(packet);
+            out.flush();
+
+            System.out.println("Uploading file: " + file.getName() + " (" + fileSize + " bytes)...");
+
+        } catch (IOException e) {
+            System.out.println("[!] Error uploading file: " + e.getMessage());
+        }
+    }
+
+    private void handleDownload(String input) {
+        String[] parts = input.split("\\s+");
+        if (parts.length < 3) {
+            System.out.println("Usage: /download <fileId> <savePath>");
+            System.out.println("Example: /download abc123 downloaded.txt");
+            return;
+        }
+
+        String fileId = parts[1];
+        String savePath = parts[2];
+
+        try {
+            ReceiverThread.downloadSavePath = savePath;
+
+            sendPacket(PacketType.FILE_DOWNLOAD_REQ, fileId);
+            System.out.println("Requesting download for fileId: " + fileId);
+
+        } catch (IOException e) {
+            System.out.println("[!] Error requesting download: " + e.getMessage());
+        }
+    }
+
     private void sendChatMessage(String text) throws IOException {
         Message msg = new Message(username, Message.MessageType.TEXT, text);
         Packet<Message> packet = new Packet<>(PacketType.CHAT, msg);
@@ -143,6 +229,7 @@ public class SenderThread implements Runnable {
         out.writeObject(packet);
         out.flush();
     }
+
     private void printHelp() {
         System.out.println("\n=== Available Commands ===");
         System.out.println("Authentication:");
@@ -159,8 +246,16 @@ public class SenderThread implements Runnable {
         System.out.println("Messaging:");
         System.out.println("  <text>                - Send message (without /)");
         System.out.println();
+        System.out.println("File Transfer:");
+        System.out.println("  /upload <localPath>   - Upload .txt file (max 200KB)");
+        System.out.println("                          Example: /upload document.txt");
+        System.out.println("  /download <fileId> <savePath>");
+        System.out.println("                        - Download file from server");
+        System.out.println("                          Example: /download abc123 myfile.txt");
+        System.out.println();
         System.out.println("Export:");
         System.out.println("  /export last <N> <savePath>  - Export last N messages (1-200)");
+        System.out.println("                                 Example: /export last 10 chat.json");
         System.out.println();
         System.out.println("Other:");
         System.out.println("  /help                 - Show this help");

@@ -1,15 +1,16 @@
 package client;
 
 import network.*;
-import common.Message;
-import common.ExportData;
+import common.*;
 import java.io.*;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class ReceiverThread implements Runnable {
     private ObjectInputStream in;
     public static String exportSavePath = "export.json";
+    public static String downloadSavePath = "download.txt";
 
     public ReceiverThread(ObjectInputStream in) {
         this.in = in;
@@ -66,6 +67,8 @@ public class ReceiverThread implements Runnable {
                 Message msg = (Message) packet.getPayload();
                 if (msg.getType() == Message.MessageType.SYSTEM) {
                     System.out.println("*** " + msg.getContent());
+                } else if (msg.getType() == Message.MessageType.FILE) {
+                    System.out.println("[" + msg.getSender() + "] shared a file: " + msg.getContent());
                 } else {
                     System.out.println("[" + msg.getSender() + "]: " + msg.getContent());
                 }
@@ -73,6 +76,14 @@ public class ReceiverThread implements Runnable {
 
             case EXPORT_RES:
                 handleExportResponse((ExportData) packet.getPayload());
+                break;
+
+            case FILE_UPLOAD_RES:
+                handleFileUploadResponse((String) packet.getPayload());
+                break;
+
+            case FILE_DOWNLOAD_RES:
+                handleFileDownloadResponse((FileData) packet.getPayload());
                 break;
 
             case ERROR:
@@ -126,6 +137,28 @@ public class ReceiverThread implements Runnable {
 
         } catch (IOException e) {
             System.out.println("[!] Export failed: " + e.getMessage());
+        }
+    }
+
+    private void handleFileUploadResponse(String response) {
+        System.out.println("\n[✓] File uploaded successfully!");
+        System.out.println("    FileID: " + response);
+        System.out.println("    Share this ID with others to download the file.");
+    }
+
+    private void handleFileDownloadResponse(FileData fileData) {
+        try {
+            File outputFile = new File(downloadSavePath);
+            Files.write(outputFile.toPath(), fileData.getContent());
+
+            System.out.println("\n[✓] File downloaded successfully!");
+            System.out.println("    Saved to: " + downloadSavePath);
+            System.out.println("    Original name: " + fileData.getMetadata().getOriginalName());
+            System.out.println("    Size: " + fileData.getMetadata().getSize() + " bytes");
+            System.out.println("    Uploaded by: " + fileData.getMetadata().getUploader());
+
+        } catch (IOException e) {
+            System.out.println("[!] Download failed: " + e.getMessage());
         }
     }
 
